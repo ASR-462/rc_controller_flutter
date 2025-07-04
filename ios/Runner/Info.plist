@@ -1,0 +1,8 @@
+<key>NSBluetoothAlwaysUsageDescription</key>
+<string>Required to connect to BLE device</string>
+<key>NSBluetoothPeripheralUsageDescription</key>
+<string>Required to connect to BLE device</string>
+<key>UIBackgroundModes</key>
+<array>
+  <string>bluetooth-central</string>
+</array>
