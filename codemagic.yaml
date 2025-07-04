@@ -1,0 +1,75 @@
+# codemagic.yaml
+workflows:
+  android-workflow:
+    name: Android Build
+    environment:
+      groups:
+        - keystore_credentials  # Група з вашими ключами підпису
+      vars:
+        CM_KEYSTORE_PATH: "$CM_BUILD_DIR/keystore.jks"  # Автоматичний шлях
+      flutter: "3.19.5"  # Конкретна стабільна версія Flutter
+    scripts:
+      # Крок 1: Виправлення Android v1 embedding
+      - name: Fix Android Embedding
+        script: |
+          echo "=== Fixing Android Embedding ==="
+          
+          # Виправляємо MainActivity
+          find android/app/src -type f -name "MainActivity.*" -exec sed -i '' 's/extends FlutterActivity {.*/extends FlutterActivity { }/g' {} \;
+          find android/app/src -type f -name "MainActivity.*" -exec sed -i '' '/import io.flutter.plugins.GeneratedPluginRegistrant/d' {} \;
+          find android/app/src -type f -name "MainActivity.*" -exec sed -i '' '/GeneratedPluginRegistrant.registerWith/d' {} \;
+          
+          # Виправляємо AndroidManifest
+          sed -i '' 's/android:name="[^"]*"//g' android/app/src/main/AndroidManifest.xml
+          
+          # Оновлюємо Gradle
+          sed -i '' 's/gradle:[0-9\.]*/gradle:8.2/g' android/build.gradle
+          sed -i '' 's/gradle-[0-9\.]*-all.zip/gradle-8.2-bin.zip/g' android/gradle/wrapper/gradle-wrapper.properties
+          
+          echo "=== Fix applied successfully! ==="
+
+      # Крок 2: Встановлення залежностей
+      - name: Install dependencies
+        script: |
+          echo "=== Installing dependencies ==="
+          flutter clean
+          flutter pub get
+          
+          # Додатково для Android
+          yes | sdkmanager "build-tools;34.0.0"
+          yes | sdkmanager --licenses
+
+      # Крок 3: Збірка APK з підписом
+      - name: Build signed APK
+        script: |
+          echo "=== Building signed APK ==="
+          
+          # Декодуємо keystore з змінної середовища
+          echo $CM_KEYSTORE | base64 --decode > $CM_KEYSTORE_PATH
+          
+          # Збираємо APK з підписом
+          flutter build apk --release \
+            --dart-define=CM_KEY_ALIAS=$CM_KEY_ALIAS \
+            --dart-define=CM_KEY_PASSWORD=$CM_KEY_PASSWORD \
+            --dart-define=CM_KEYSTORE_PATH=$CM_KEYSTORE_PATH \
+            --dart-define=CM_KEYSTORE_PASSWORD=$CM_KEYSTORE_PASSWORD
+
+    artifacts:
+      - build/app/outputs/**/*.apk
+      - build/app/outputs/**/*.aab  # Додаємо App Bundle
+
+    publishing:
+      email:
+        recipients:
+          - your_email@example.com  # Замініть на вашу пошту
+      google_play:  # Автоматична публікація в Google Play
+        credentials: $GCLOUD_SERVICE_ACCOUNT_CREDENTIALS
+        track: beta
+      scripts:
+        - name: Upload to Firebase
+          script: |
+            echo "=== Uploading to Firebase ==="
+            firebase appdistribution:distribute build/app/outputs/apk/release/app-release.apk \
+              --app $FIREBASE_APP_ID \
+              --token "$FIREBASE_TOKEN" \
+              --groups "testers"
