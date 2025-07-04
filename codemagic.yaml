@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # codemagic.yaml
 workflows:
   android-workflow:
@@ -73,3 +74,18 @@ workflows:
               --app $FIREBASE_APP_ID \
               --token "$FIREBASE_TOKEN" \
               --groups "testers"
+=======
+workflows:
+  flutter-android:
+    name: Build Flutter Android APK
+    max_build_duration: 10
+    environment:
+      flutter: stable
+    scripts:
+      - name: Install dependencies
+        script: flutter pub get
+      - name: Build APK
+        script: flutter build apk --release
+    artifacts:
+      - build/app/outputs/flutter-apk/app-release.apk
+>>>>>>> 89f41b459298c6a2d493109a918682a9da76170c
